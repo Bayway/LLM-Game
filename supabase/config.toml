@@ -1,0 +1,7 @@
+# Only the function settings the deploys rely on; the hosted project is
+# Marketplace-LLM-Wait (ref mqhxhdhdmexkbhlmkjvu).
+project_id = "Marketplace-LLM-Wait"
+
+[functions.deriva]
+# Players authenticate inside the function (room code + player token), not with a Supabase JWT.
+verify_jwt = false

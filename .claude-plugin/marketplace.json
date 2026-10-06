@@ -15,6 +15,13 @@
       "description": "Sala d'attesa: Snake giocabile solo mentre Claude lavora",
       "version": "0.1.0",
       "category": "games"
+    },
+    {
+      "name": "deriva",
+      "source": "./plugins/deriva",
+      "description": "Deriva: gioco cooperativo multiplayer, tenete in rotta la nave del team mentre i vostri Claude lavorano",
+      "version": "0.1.0",
+      "category": "games"
     }
   ]
 }

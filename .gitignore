@@ -3,3 +3,6 @@ plugins/*/.claude-plugin/types/
 plugins/*/tsconfig.json
 
 .DS_Store
+
+# Supabase CLI cache
+supabase/.temp/
