@@ -1,0 +1,20 @@
+{
+  "name": "llm-game",
+  "owner": {
+    "name": "Massimiliano Fiori",
+    "email": "massimiliano.fiori@aol.it"
+  },
+  "metadata": {
+    "description": "Giochi da sala d'attesa: si giocano solo mentre Claude lavora",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "waiting-room",
+      "source": "./plugins/waiting-room",
+      "description": "Sala d'attesa: Snake giocabile solo mentre Claude lavora",
+      "version": "0.1.0",
+      "category": "games"
+    }
+  ]
+}
