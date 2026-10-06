@@ -1,8 +1,7 @@
 {
   "name": "llm-game",
   "owner": {
-    "name": "Massimiliano Fiori",
-    "email": "massimiliano.fiori@aol.it"
+    "name": "Massimiliano Fiori"
   },
   "metadata": {
     "description": "Giochi da sala d'attesa: si giocano solo mentre Claude lavora",

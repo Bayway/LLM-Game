@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "description": "Deriva: tenete in rotta la nave del team, insieme, mentre i vostri Claude lavorano",
   "author": {
-    "name": "Massimiliano Fiori",
-    "email": "massimiliano.fiori@aol.it"
+    "name": "Massimiliano Fiori"
   },
   "types": "./types/index.d.ts"
 }

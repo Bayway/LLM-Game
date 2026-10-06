@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "description": "Sala d'attesa: Snake giocabile solo mentre Claude lavora",
   "author": {
-    "name": "Massimiliano Fiori",
-    "email": "massimiliano.fiori@aol.it"
+    "name": "Massimiliano Fiori"
   },
   "types": "./types/index.d.ts"
 }
