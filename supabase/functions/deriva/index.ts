@@ -45,6 +45,7 @@ const CREATION_LIMITS: Record<string, string> = {
   day: 'Hai raggiunto il limite di 10 navi al giorno: riprova domani.',
   overall: "Troppe navi create nell'ultima ora: riprova tra poco.",
 }
+const JOIN_LIMIT = "Troppi tentativi di ingresso da questa rete nell'ultima ora (massimo 20): riprova più tardi."
 
 const HEADERS = {
   'content-type': 'application/json',
@@ -83,7 +84,7 @@ function text(value: unknown, max: number): string | null {
  */
 function callerIp(req: Request): string {
   const ip = req.headers.get('cf-connecting-ip') || req.headers.get('x-real-ip')
-  if (!ip) console.warn('deriva: no caller IP header; such callers share one creation limit')
+  if (!ip) console.warn('deriva: no caller IP header; such callers share one rate limit')
 
   return ip || 'unknown'
 }
@@ -101,6 +102,14 @@ async function claimCreation(req: Request): Promise<string | null> {
   if (error) throw error
 
   return data === 'ok' ? null : (CREATION_LIMITS[String(data)] ?? CREATION_LIMITS.overall ?? null)
+}
+
+/** Claims one join attempt for this caller, a wrong code included: null when allowed, else why not. */
+async function claimJoin(req: Request): Promise<string | null> {
+  const { data, error } = await db.rpc('deriva_claim_join_attempt', { p_ip_hash: await ipHash(req) })
+  if (error) throw error
+
+  return data === 'ok' ? null : JOIN_LIMIT
 }
 
 async function load(code: string): Promise<{ state: State; version: number } | null> {
@@ -164,12 +173,14 @@ async function create(req: Request, body: Record<string, unknown>): Promise<Resp
   throw new Error('No free room code')
 }
 
-async function join(body: Record<string, unknown>): Promise<Response> {
+async function join(req: Request, body: Record<string, unknown>): Promise<Response> {
   const code = text(body.code, 16)?.toUpperCase()
   const nickname = cleanNickname(text(body.nickname, 64) ?? '')
   const role = body.role === undefined ? undefined : (body.role as Role)
   if (!code || !nickname) return reply({ error: 'Servono il codice della stanza e un nome.' }, 400)
   if (role !== undefined && !ROLES.includes(role)) return reply({ error: `Ruoli: ${ROLES.join(', ')}.` }, 400)
+  const limit = await claimJoin(req)
+  if (limit) return reply({ error: limit }, 429)
 
   const playerId = crypto.randomUUID()
   const token = randomHex(24)
@@ -245,7 +256,7 @@ Deno.serve(async req => {
       case 'create':
         return await create(req, body)
       case 'join':
-        return await join(body)
+        return await join(req, body)
       case 'sync':
       case 'act':
       case 'signal':
