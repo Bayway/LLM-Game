@@ -36,6 +36,13 @@ const MAX_ATTEMPTS = 5
 /** A read that ran the ship this far forward stores the result, so later reads start from there. */
 const CHECKPOINT_MS = 30 * MINUTE
 const BAD_CREDENTIALS = 'Credenziali non valide per questa stanza.'
+/** Keys the hash of the caller's IP, so the stored hashes cannot be reversed by trying every IP. */
+const IP_KEY = Deno.env.get('DERIVA_IP_SALT') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const CREATION_LIMITS: Record<string, string> = {
+  hour: "Hai già creato 3 navi nell'ultima ora: riprova più tardi, o sali su quella del team.",
+  day: 'Hai raggiunto il limite di 10 navi al giorno: riprova domani.',
+  overall: "Troppe navi create nell'ultima ora: riprova tra poco.",
+}
 
 const HEADERS = {
   'content-type': 'application/json',
@@ -66,6 +73,32 @@ async function sha256(text: string): Promise<string> {
 
 function text(value: unknown, max: number): string | null {
   return typeof value === 'string' && value.length > 0 && value.length <= max ? value : null
+}
+
+/**
+ * The caller's IP as Supabase's gateway sets it. Not x-forwarded-for, which a caller can write:
+ * the gateway drops a client's own, but the limit should not depend on that.
+ */
+function callerIp(req: Request): string {
+  const ip = req.headers.get('cf-connecting-ip') || req.headers.get('x-real-ip')
+  if (!ip) console.warn('deriva: no caller IP header; such callers share one creation limit')
+
+  return ip || 'unknown'
+}
+
+async function ipHash(req: Request): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(IP_KEY), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(callerIp(req)))
+
+  return Array.from(new Uint8Array(signature), b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/** Claims one room creation for this caller: null when allowed, else the limit's message. */
+async function claimCreation(req: Request): Promise<string | null> {
+  const { data, error } = await db.rpc('deriva_claim_room_creation', { p_ip_hash: await ipHash(req) })
+  if (error) throw error
+
+  return data === 'ok' ? null : (CREATION_LIMITS[String(data)] ?? CREATION_LIMITS.overall ?? null)
 }
 
 async function load(code: string): Promise<{ state: State; version: number } | null> {
@@ -107,9 +140,11 @@ async function run(
   throw new Error('Too many concurrent writes')
 }
 
-async function create(body: Record<string, unknown>): Promise<Response> {
+async function create(req: Request, body: Record<string, unknown>): Promise<Response> {
   const nickname = cleanNickname(text(body.nickname, 64) ?? '')
   if (!nickname) return reply({ error: 'Scegli un nome di almeno 2 caratteri.' }, 400)
+  const limit = await claimCreation(req)
+  if (limit) return reply({ error: limit }, 429)
 
   const playerId = crypto.randomUUID()
   const token = randomHex(24)
@@ -199,7 +234,7 @@ Deno.serve(async req => {
   try {
     switch (body.op) {
       case 'create':
-        return await create(body)
+        return await create(req, body)
       case 'join':
         return await join(body)
       case 'sync':
