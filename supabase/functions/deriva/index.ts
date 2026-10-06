@@ -36,6 +36,8 @@ const MAX_ATTEMPTS = 5
 /** A read that ran the ship this far forward stores the result, so later reads start from there. */
 const CHECKPOINT_MS = 30 * MINUTE
 const BAD_CREDENTIALS = 'Credenziali non valide per questa stanza.'
+/** Matches the nightly deriva_delete_abandoned_rooms job (migration 20261007020000). */
+const ABANDONED_DAYS = 30
 /** Keys the hash of the caller's IP, so the stored hashes cannot be reversed by trying every IP. */
 const IP_KEY = Deno.env.get('DERIVA_IP_SALT') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const CREATION_LIMITS: Record<string, string> = {
@@ -177,7 +179,9 @@ async function join(body: Record<string, unknown>): Promise<Response> {
     const added = addPlayer(state, { id: playerId, tokenHash, nickname, role }, now)
     return added.error ? { state, error: added.error, isChanged: false } : { state, isChanged: true }
   })
-  if (!result) return reply({ error: `Nessuna stanza ${code}.` }, 404)
+  if (!result) {
+    return reply({ error: `Nessuna nave ${code}: controlla il codice. Le navi ferme da ${ABANDONED_DAYS} giorni vengono smantellate.` }, 404)
+  }
   if (result.error) return reply({ error: result.error })
 
   return reply({ code, playerId, token, view: toView(result.state, playerId, result.now) })
@@ -212,7 +216,12 @@ async function member(op: string, body: Record<string, unknown>): Promise<Respon
     return outcome.error ? { state, error: outcome.error, isChanged: false } : { state, isChanged: true }
   })
 
-  if (!result) return reply({ error: `Nessuna stanza ${code}.` }, 404)
+  if (!result) {
+    return reply(
+      { error: `La nave ${code} non esiste più: dopo ${ABANDONED_DAYS} giorni senza attività viene smantellata. Creane una con /deriva nuova <nome>.` },
+      404,
+    )
+  }
   if (result.error === BAD_CREDENTIALS) return reply({ error: result.error }, 401)
 
   return reply({ error: result.error, view: toView(result.state, playerId, result.now) })
